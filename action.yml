@@ -1,0 +1,33 @@
+name: Build and push benchmark
+description: Build the benchmark image, push to a registry, and report per-phase timings.
+
+inputs:
+  name:
+    description: "Registry name for the summary heading (e.g. Clipper, GHCR)"
+    required: true
+  output:
+    description: "docker buildx build --output value"
+    required: true
+  base:
+    description: "Base image (passed as BASE build arg)"
+    required: false
+    default: "nvidia/cuda:12.9.0-runtime-ubuntu24.04"
+
+runs:
+  using: composite
+  steps:
+    - name: Build and push
+      shell: bash
+      run: |
+        docker buildx build \
+          --progress=rawjson \
+          --build-arg BASE=${{ inputs.base }} \
+          --build-arg SOURCE_DATE_EPOCH=0 \
+          --output "${{ inputs.output }}" \
+          ${{ github.action_path }}/push 2>&1 | tee /tmp/build-${{ inputs.name }}.jsonl
+        {
+          echo "### ${{ inputs.name }}"
+          echo "| Phase | Duration |"
+          echo "|-------|----------|"
+          python3 ${{ github.action_path }}/scripts/parse-timing.py < /tmp/build-${{ inputs.name }}.jsonl
+        } >> $GITHUB_STEP_SUMMARY
