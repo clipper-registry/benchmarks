@@ -12,6 +12,10 @@ inputs:
     description: "Base image (passed as BASE build arg)"
     required: false
     default: "nvidia/cuda:12.9.0-runtime-ubuntu24.04"
+  context:
+    description: "Build context directory (relative to repo root)"
+    required: false
+    default: "push"
   buildkit-image:
     description: "BuildKit image for the buildx driver"
     required: false
@@ -71,7 +75,7 @@ runs:
           --build-arg BASE=${{ inputs.base }} \
           --build-arg SOURCE_DATE_EPOCH=0 \
           --output "${{ inputs.output }}" \
-          ${{ github.action_path }}/push 2>&1 \
+          ${{ github.action_path }}/${{ inputs.context }} 2>&1 \
           | tee /tmp/build-${{ inputs.name }}.jsonl \
           | python3 ${{ github.action_path }}/scripts/parse-timing.py
         {

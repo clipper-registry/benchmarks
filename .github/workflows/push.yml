@@ -25,32 +25,30 @@ on:
         required: true
 
 jobs:
-  bench-clipper:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          repository: clipper-registry/benchmarks
-
-      - uses: ./
-        with:
-          name: Clipper
-          buildkit-image: ${{ inputs.buildkit_image || 'ghcr.io/clipper-registry/buildkit:latest' }}
-          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
-          registry: clipper.dev
-          registry-username: token
-          registry-password: ${{ secrets.CLIPPER_CI_CREDENTIALS }}
-          base: clipper.dev/clipper/cuda:12.9.0-runtime-ubuntu24.04
-          output: "type=clipper,name=clipper.dev/clipper/ci-bench:${{ github.run_id }},push=true"
-
-  bench-ghcr:
+  bench:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Clipper
+            buildkit-image: true
+            registry: clipper.dev
+            registry-username: token
+            registry-password-secret: CLIPPER_CI_CREDENTIALS
+            base: clipper.dev/clipper/cuda:12.9.0-runtime-ubuntu24.04
+            output: "type=clipper,name=clipper.dev/clipper/ci-bench:${{ github.run_id }},push=true"
+          - name: GHCR
+            registry: ghcr.io
+            registry-password-secret: GITHUB_TOKEN
+            output: "type=image,name=ghcr.io/${{ github.repository }}/ci-bench:${{ github.run_id }},push=true"
+          - name: Docker Hub
+            registry-password-secret: DOCKERHUB_TOKEN
+            registry-username-secret: DOCKERHUB_USERNAME
+            output: "type=image,name=clipperregistry/ci-bench:${{ github.run_id }},push=true"
     steps:
       - uses: actions/checkout@v6
         with:
@@ -58,24 +56,24 @@ jobs:
 
       - uses: ./
         with:
-          name: GHCR
-          registry: ghcr.io
-          registry-username: ${{ github.actor }}
-          registry-password: ${{ secrets.GITHUB_TOKEN }}
-          output: "type=image,name=ghcr.io/${{ github.repository }}/ci-bench:${{ github.run_id }},push=true"
-
-  bench-dockerhub:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          repository: clipper-registry/benchmarks
-
-      - uses: ./
-        with:
-          name: Docker Hub
-          registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
-          registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
-          output: "type=image,name=clipperregistry/ci-bench:${{ github.run_id }},push=true"
+          name: ${{ matrix.name }}
+          buildkit-image: ${{ matrix.buildkit-image && (inputs.buildkit_image || 'ghcr.io/clipper-registry/buildkit:latest') || '' }}
+          ghcr-token: ${{ secrets.GITHUB_TOKEN }}
+          registry: ${{ matrix.registry || '' }}
+          registry-username: >-
+            ${{
+              matrix.registry-username ||
+              matrix.registry-username-secret == 'DOCKERHUB_USERNAME' && secrets.DOCKERHUB_USERNAME ||
+              matrix.registry-password-secret == 'GITHUB_TOKEN' && github.actor ||
+              ''
+            }}
+          registry-password: >-
+            ${{
+              matrix.registry-password-secret == 'CLIPPER_CI_CREDENTIALS' && secrets.CLIPPER_CI_CREDENTIALS ||
+              matrix.registry-password-secret == 'DOCKERHUB_TOKEN' && secrets.DOCKERHUB_TOKEN ||
+              matrix.registry-password-secret == 'GITHUB_TOKEN' && secrets.GITHUB_TOKEN ||
+              ''
+            }}
+          base: ${{ matrix.base || 'nvidia/cuda:12.9.0-runtime-ubuntu24.04' }}
+          context: ${{ matrix.context || 'push' }}
+          output: ${{ matrix.output }}
