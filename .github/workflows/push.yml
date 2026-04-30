@@ -26,7 +26,7 @@ on:
 
 jobs:
   bench:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.workload }} / ${{ matrix.registry }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,22 +34,28 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        workload: [push]
+        registry: [clipper, ghcr, dockerhub]
         include:
-          - name: Clipper
+          # Registry config
+          - registry: clipper
             buildkit-image: ${{ inputs.buildkit_image || 'ghcr.io/clipper-registry/buildkit:latest' }}
-            registry: clipper.dev
+            registry-host: clipper.dev
             registry-username: token
             registry-password-secret: CLIPPER_CI_CREDENTIALS
             base: clipper.dev/clipper/cuda:12.9.0-runtime-ubuntu24.04
-            output: "type=clipper,name=clipper.dev/clipper/ci-bench:${{ github.run_id }},push=true"
-          - name: GHCR
-            registry: ghcr.io
+            output-type: clipper
+            output-repo: clipper.dev/clipper/ci-bench
+          - registry: ghcr
+            registry-host: ghcr.io
             registry-password-secret: GITHUB_TOKEN
-            output: "type=image,name=ghcr.io/${{ github.repository }}/ci-bench:${{ github.run_id }},push=true"
-          - name: Docker Hub
-            registry-password-secret: DOCKERHUB_TOKEN
+            output-type: image
+            output-repo: ghcr.io/${{ github.repository }}/ci-bench
+          - registry: dockerhub
             registry-username-secret: DOCKERHUB_USERNAME
-            output: "type=image,name=clipperregistry/ci-bench:${{ github.run_id }},push=true"
+            registry-password-secret: DOCKERHUB_TOKEN
+            output-type: image
+            output-repo: clipperregistry/ci-bench
     steps:
       - uses: actions/checkout@v6
         with:
@@ -57,10 +63,10 @@ jobs:
 
       - uses: ./
         with:
-          name: ${{ matrix.name }}
+          name: ${{ matrix.workload }} / ${{ matrix.registry }}
           buildkit-image: ${{ matrix.buildkit-image || '' }}
           ghcr-token: ${{ secrets.GITHUB_TOKEN }}
-          registry: ${{ matrix.registry || '' }}
+          registry: ${{ matrix.registry-host || '' }}
           registry-username: >-
             ${{
               matrix.registry-username ||
@@ -76,5 +82,5 @@ jobs:
               ''
             }}
           base: ${{ matrix.base || 'nvidia/cuda:12.9.0-runtime-ubuntu24.04' }}
-          context: ${{ matrix.context || 'push' }}
-          output: ${{ matrix.output }}
+          context: ${{ matrix.workload }}
+          output: "type=${{ matrix.output-type }},name=${{ matrix.output-repo }}:${{ github.run_id }},push=true"
