@@ -68,19 +68,26 @@ runs:
 
     - name: Build and push
       shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        SAFE_NAME: ${{ inputs.name }}
       run: |
+        SAFE_NAME="${SAFE_NAME// /-}"
+        SAFE_NAME="${SAFE_NAME////-}"
+        echo "Action path: $ACTION_PATH"
+        ls "$ACTION_PATH/scripts/" || true
         docker buildx build \
           --progress=rawjson \
           --builder=${{ steps.buildx.outputs.name }} \
           --build-arg BASE=${{ inputs.base }} \
           --build-arg SOURCE_DATE_EPOCH=0 \
           --output "${{ inputs.output }}" \
-          ${{ github.action_path }}/${{ inputs.context }} 2>&1 \
-          | tee /tmp/build-${{ inputs.name }}.jsonl \
-          | python3 ${{ github.action_path }}/scripts/parse-timing.py
+          "$ACTION_PATH/${{ inputs.context }}" 2>&1 \
+          | tee /tmp/build-${SAFE_NAME}.jsonl \
+          | python3 "$ACTION_PATH/scripts/parse-timing.py"
         {
           echo "### ${{ inputs.name }}"
           echo "| Phase | Duration |"
           echo "|-------|----------|"
-          python3 ${{ github.action_path }}/scripts/parse-timing.py --summary /tmp/build-${{ inputs.name }}.jsonl
+          python3 "$ACTION_PATH/scripts/parse-timing.py" --summary /tmp/build-${SAFE_NAME}.jsonl
         } >> $GITHUB_STEP_SUMMARY
