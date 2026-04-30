@@ -29,10 +29,12 @@ runs:
           --build-arg BASE=${{ inputs.base }} \
           --build-arg SOURCE_DATE_EPOCH=0 \
           --output "${{ inputs.output }}" \
-          ${{ github.action_path }}/push 2>&1 | tee /tmp/build-${{ inputs.name }}.jsonl
+          ${{ github.action_path }}/push 2>&1 \
+          | tee /tmp/build-${{ inputs.name }}.jsonl \
+          | python3 ${{ github.action_path }}/scripts/parse-timing.py
         {
           echo "### ${{ inputs.name }}"
           echo "| Phase | Duration |"
           echo "|-------|----------|"
-          python3 ${{ github.action_path }}/scripts/parse-timing.py < /tmp/build-${{ inputs.name }}.jsonl
+          python3 ${{ github.action_path }}/scripts/parse-timing.py --summary /tmp/build-${{ inputs.name }}.jsonl
         } >> $GITHUB_STEP_SUMMARY

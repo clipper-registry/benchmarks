@@ -1,35 +1,30 @@
 #!/usr/bin/env python3
-"""Parse buildkit --progress=rawjson output and summarize phase timings.
+"""Filter buildkit --progress=rawjson into readable live output.
 
-Reads JSON lines from stdin, groups vertices into phases (pull, build, export),
-and prints a markdown summary.
+Pipe mode (default): reads JSON lines from stdin, prints vertex status
+as it happens, and writes a timing summary at the end.
+
+Summary mode (--summary FILE): reads a saved jsonl file and outputs
+a markdown timing table to stdout.
 """
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
+
 
 def parse_time(s):
-    # Handle both "Z" and "+00:00" suffixes, and nanosecond precision
     s = s.replace("Z", "+00:00")
-    # Truncate nanoseconds to microseconds for fromisoformat
     if "." in s:
-        parts = s.split(".")
-        frac, rest = parts[1].split("+") if "+" in parts[1] else (parts[1].split("-")[0], "-" + parts[1].split("-", 1)[1] if "-" in parts[1][1:] else "")
-        frac = frac[:6]
-        s = parts[0] + "." + frac + "+" + rest.lstrip("+-") if rest else parts[0] + "." + frac + "+00:00"
+        dot = s.index(".")
+        plus = s.find("+", dot)
+        if plus == -1:
+            plus = s.find("-", dot + 1)
+        if plus == -1:
+            s = s[:dot + 7] + "+00:00"
+        else:
+            s = s[:dot + 7] + s[plus:]
     return datetime.fromisoformat(s)
 
-def classify(name):
-    name_lower = name.lower()
-    if "exporting to" in name_lower:
-        return "export"
-    if any(k in name_lower for k in ["load metadata", "resolve", "from ", "sha256:", "extracting"]):
-        return "pull"
-    if any(k in name_lower for k in ["run ", "copy ", "workdir", "cmd", "env ", "arg "]):
-        return "build"
-    if "load build definition" in name_lower or "load .dockerignore" in name_lower:
-        return "setup"
-    return "other"
 
 def fmt_duration(seconds):
     m, s = divmod(int(seconds), 60)
@@ -37,10 +32,21 @@ def fmt_duration(seconds):
         return f"{m}m {s:02d}s"
     return f"{s}s"
 
-def main():
-    vertices = {}  # digest -> {name, started, completed}
 
-    for line in sys.stdin:
+def classify(name):
+    n = name.lower()
+    if "exporting to" in n:
+        return "export"
+    if any(k in n for k in ["load metadata", "resolve", "from ", "sha256:", "extracting"]):
+        return "pull"
+    if any(k in n for k in ["run ", "copy ", "workdir"]):
+        return "build"
+    return "other"
+
+
+def process_events(lines, live=False):
+    vertices = {}
+    for line in lines:
         line = line.strip()
         if not line:
             continue
@@ -48,62 +54,80 @@ def main():
             status = json.loads(line)
         except json.JSONDecodeError:
             continue
-
         for v in status.get("vertexes", []):
-            digest = v.get("digest", "")
-            if digest not in vertices:
-                vertices[digest] = {"name": v.get("name", ""), "started": None, "completed": None}
-            if v.get("started"):
-                vertices[digest]["started"] = v["started"]
-            if v.get("completed"):
-                vertices[digest]["completed"] = v["completed"]
+            d = v.get("digest", "")
+            if d not in vertices:
+                vertices[d] = {"name": "", "started": None, "completed": None, "cached": False}
             if v.get("name"):
-                vertices[digest]["name"] = v["name"]
+                vertices[d]["name"] = v["name"]
+            if v.get("cached"):
+                vertices[d]["cached"] = True
+            if v.get("started") and not vertices[d]["started"]:
+                vertices[d]["started"] = v["started"]
+                if live:
+                    name = vertices[d]["name"]
+                    if name and not name.startswith("[internal]"):
+                        print(f"  > {name}", file=sys.stderr, flush=True)
+            if v.get("completed"):
+                vertices[d]["completed"] = v["completed"]
+                if live:
+                    name = vertices[d]["name"]
+                    started = parse_time(vertices[d]["started"])
+                    completed = parse_time(v["completed"])
+                    dur = (completed - started).total_seconds()
+                    cached = " (cached)" if vertices[d]["cached"] else ""
+                    if name and not name.startswith("[internal]"):
+                        print(f"  < {name} [{fmt_duration(dur)}{cached}]", file=sys.stderr, flush=True)
+    return vertices
 
-    # Group by phase
-    phases = {"pull": [], "build": [], "export": [], "setup": [], "other": []}
+
+def summary(vertices):
+    phases = {"pull": [], "build": [], "export": [], "other": []}
     for v in vertices.values():
         if not v["started"] or not v["completed"]:
             continue
         phase = classify(v["name"])
-        start = parse_time(v["started"])
-        end = parse_time(v["completed"])
-        phases[phase].append((start, end, v["name"]))
+        phases[phase].append((parse_time(v["started"]), parse_time(v["completed"])))
 
-    # Compute phase durations (wall clock: earliest start to latest end)
-    global_start = None
-    global_end = None
-
+    global_start, global_end = None, None
     results = []
     for phase in ["pull", "build", "export"]:
         entries = phases[phase]
         if not entries:
             continue
-        earliest = min(s for s, e, n in entries)
-        latest = max(e for s, e, n in entries)
-        duration = (latest - earliest).total_seconds()
-        results.append((phase.capitalize(), duration))
-
+        earliest = min(s for s, e in entries)
+        latest = max(e for s, e in entries)
+        dur = (latest - earliest).total_seconds()
+        results.append((phase.capitalize(), dur))
         if global_start is None or earliest < global_start:
             global_start = earliest
         if global_end is None or latest > global_end:
             global_end = latest
 
-    # Include setup/other in global timing
-    for phase in ["setup", "other"]:
-        for s, e, n in phases[phase]:
-            if global_start is None or s < global_start:
-                global_start = s
-            if global_end is None or e > global_end:
-                global_end = e
+    for s, e in phases["other"]:
+        if global_start is None or s < global_start:
+            global_start = s
+        if global_end is None or e > global_end:
+            global_end = e
 
     if global_start and global_end:
-        total = (global_end - global_start).total_seconds()
-        results.append(("Total", total))
+        results.append(("Total", (global_end - global_start).total_seconds()))
 
-    # Output
-    for name, duration in results:
-        print(f"| {name} | {fmt_duration(duration)} |")
+    return results
+
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--summary":
+        with open(sys.argv[2]) as f:
+            vertices = process_events(f, live=False)
+        for name, dur in summary(vertices):
+            print(f"| {name} | {fmt_duration(dur)} |")
+    else:
+        vertices = process_events(sys.stdin, live=True)
+        print("", file=sys.stderr)
+        for name, dur in summary(vertices):
+            print(f"  {name}: {fmt_duration(dur)}", file=sys.stderr, flush=True)
+
 
 if __name__ == "__main__":
     main()
