@@ -35,7 +35,7 @@ jobs:
       matrix:
         include:
           - name: Clipper
-            buildkit-image: true
+            buildkit-image: ${{ inputs.buildkit_image || 'ghcr.io/clipper-registry/buildkit:latest' }}
             registry: clipper.dev
             registry-username: token
             registry-password-secret: CLIPPER_CI_CREDENTIALS
@@ -57,7 +57,7 @@ jobs:
       - uses: ./
         with:
           name: ${{ matrix.name }}
-          buildkit-image: ${{ matrix.buildkit-image && (inputs.buildkit_image || 'ghcr.io/clipper-registry/buildkit:latest') || '' }}
+          buildkit-image: ${{ matrix.buildkit-image || '' }}
           ghcr-token: ${{ secrets.GITHUB_TOKEN }}
           registry: ${{ matrix.registry || '' }}
           registry-username: >-
