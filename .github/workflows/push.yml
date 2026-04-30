@@ -7,6 +7,20 @@ on:
         description: "BuildKit image to use for Clipper driver (e.g. ghcr.io/clipper-registry/buildkit:sha)"
         required: false
         default: "ghcr.io/clipper-registry/buildkit:latest"
+  workflow_call:
+    inputs:
+      buildkit_image:
+        description: "BuildKit image to use for Clipper driver"
+        required: false
+        type: string
+        default: "ghcr.io/clipper-registry/buildkit:latest"
+    secrets:
+      CLIPPER_CI_CREDENTIALS:
+        required: true
+      DOCKERHUB_USERNAME:
+        required: true
+      DOCKERHUB_TOKEN:
+        required: true
 
 jobs:
   bench-clipper:
