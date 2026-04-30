@@ -55,14 +55,18 @@ jobs:
 
       - name: Build and push to Clipper
         run: |
-          START=$SECONDS
           docker buildx build \
+            --progress=rawjson \
             --build-arg BASE=clipper.dev/clipper/cuda:12.9.0-runtime-ubuntu24.04 \
             --build-arg SOURCE_DATE_EPOCH=0 \
             --output "type=clipper,name=clipper.dev/clipper/ci-bench:${{ github.run_id }},push=true" \
-            push
-          ELAPSED=$(( SECONDS - START ))
-          echo "### Clipper push: $(date -u -d@$ELAPSED +%Mm\ %Ss)" >> $GITHUB_STEP_SUMMARY
+            push 2>&1 | tee /tmp/build.jsonl
+          {
+            echo "### Clipper"
+            echo "| Phase | Duration |"
+            echo "|-------|----------|"
+            python3 scripts/parse-timing.py < /tmp/build.jsonl
+          } >> $GITHUB_STEP_SUMMARY
 
   bench-ghcr:
     runs-on: ubuntu-latest
@@ -87,13 +91,17 @@ jobs:
 
       - name: Build and push to GHCR
         run: |
-          START=$SECONDS
           docker buildx build \
+            --progress=rawjson \
             --build-arg SOURCE_DATE_EPOCH=0 \
             --output "type=image,name=ghcr.io/${{ github.repository }}/ci-bench:${{ github.run_id }},push=true" \
-            push
-          ELAPSED=$(( SECONDS - START ))
-          echo "### GHCR push: $(date -u -d@$ELAPSED +%Mm\ %Ss)" >> $GITHUB_STEP_SUMMARY
+            push 2>&1 | tee /tmp/build.jsonl
+          {
+            echo "### GHCR"
+            echo "| Phase | Duration |"
+            echo "|-------|----------|"
+            python3 scripts/parse-timing.py < /tmp/build.jsonl
+          } >> $GITHUB_STEP_SUMMARY
 
   bench-dockerhub:
     runs-on: ubuntu-latest
@@ -116,10 +124,14 @@ jobs:
 
       - name: Build and push to Docker Hub
         run: |
-          START=$SECONDS
           docker buildx build \
+            --progress=rawjson \
             --build-arg SOURCE_DATE_EPOCH=0 \
             --output "type=image,name=clipperregistry/ci-bench:${{ github.run_id }},push=true" \
-            push
-          ELAPSED=$(( SECONDS - START ))
-          echo "### Docker Hub push: $(date -u -d@$ELAPSED +%Mm\ %Ss)" >> $GITHUB_STEP_SUMMARY
+            push 2>&1 | tee /tmp/build.jsonl
+          {
+            echo "### Docker Hub"
+            echo "| Phase | Duration |"
+            echo "|-------|----------|"
+            python3 scripts/parse-timing.py < /tmp/build.jsonl
+          } >> $GITHUB_STEP_SUMMARY
