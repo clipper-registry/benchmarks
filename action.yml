@@ -12,6 +12,10 @@ inputs:
     description: "Base image (passed as BASE build arg)"
     required: false
     default: "nvidia/cuda:12.9.0-runtime-ubuntu24.04"
+  builder:
+    description: "Buildx builder name (default: use current builder)"
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -21,6 +25,7 @@ runs:
       run: |
         docker buildx build \
           --progress=rawjson \
+          ${{ inputs.builder && format('--builder={0}', inputs.builder) || '' }} \
           --build-arg BASE=${{ inputs.base }} \
           --build-arg SOURCE_DATE_EPOCH=0 \
           --output "${{ inputs.output }}" \
