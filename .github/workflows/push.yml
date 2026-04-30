@@ -55,15 +55,14 @@ jobs:
 
       - name: Build and push to Clipper
         run: |
-          START=$(date +%s%N)
+          START=$SECONDS
           docker buildx build \
             --build-arg BASE=clipper.dev/clipper/cuda:12.9.0-runtime-ubuntu24.04 \
             --build-arg SOURCE_DATE_EPOCH=0 \
             --output "type=clipper,name=clipper.dev/clipper/ci-bench:${{ github.run_id }},push=true" \
             push
-          END=$(date +%s%N)
-          MS=$(( (END - START) / 1000000 ))
-          echo "### Clipper push: ${MS}ms" >> $GITHUB_STEP_SUMMARY
+          ELAPSED=$(( SECONDS - START ))
+          echo "### Clipper push: $(date -u -d@$ELAPSED +%Mm\ %Ss)" >> $GITHUB_STEP_SUMMARY
 
   bench-ghcr:
     runs-on: ubuntu-latest
@@ -88,14 +87,13 @@ jobs:
 
       - name: Build and push to GHCR
         run: |
-          START=$(date +%s%N)
+          START=$SECONDS
           docker buildx build \
             --build-arg SOURCE_DATE_EPOCH=0 \
             --output "type=image,name=ghcr.io/${{ github.repository }}/ci-bench:${{ github.run_id }},push=true" \
             push
-          END=$(date +%s%N)
-          MS=$(( (END - START) / 1000000 ))
-          echo "### GHCR push: ${MS}ms" >> $GITHUB_STEP_SUMMARY
+          ELAPSED=$(( SECONDS - START ))
+          echo "### GHCR push: $(date -u -d@$ELAPSED +%Mm\ %Ss)" >> $GITHUB_STEP_SUMMARY
 
   bench-dockerhub:
     runs-on: ubuntu-latest
@@ -118,11 +116,10 @@ jobs:
 
       - name: Build and push to Docker Hub
         run: |
-          START=$(date +%s%N)
+          START=$SECONDS
           docker buildx build \
             --build-arg SOURCE_DATE_EPOCH=0 \
             --output "type=image,name=clipperregistry/ci-bench:${{ github.run_id }},push=true" \
             push
-          END=$(date +%s%N)
-          MS=$(( (END - START) / 1000000 ))
-          echo "### Docker Hub push: ${MS}ms" >> $GITHUB_STEP_SUMMARY
+          ELAPSED=$(( SECONDS - START ))
+          echo "### Docker Hub push: $(date -u -d@$ELAPSED +%Mm\ %Ss)" >> $GITHUB_STEP_SUMMARY
