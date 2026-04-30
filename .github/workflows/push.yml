@@ -26,6 +26,7 @@ on:
 
 jobs:
   bench:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
