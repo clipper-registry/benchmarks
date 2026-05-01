@@ -84,3 +84,13 @@ jobs:
           base: ${{ matrix.base || 'nvidia/cuda:12.9.0-runtime-ubuntu24.04' }}
           context: ${{ matrix.workload }}
           output: "type=${{ matrix.output-type }},name=${{ matrix.output-repo }}:${{ github.run_id }},push=true"
+
+  download-test:
+    name: download test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download 100MB test file
+        run: |
+          curl -o /dev/null -w "speed: %{speed_download} bytes/sec\ntime: %{time_total}s\nsize: %{size_download} bytes\n" https://speed.hetzner.de/100MB.bin
+          echo "---"
+          curl -o /dev/null -w "speed: %{speed_download} bytes/sec\ntime: %{time_total}s\nsize: %{size_download} bytes\n" https://proof.ovh.net/files/100Mb.dat
