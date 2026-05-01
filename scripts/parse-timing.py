@@ -37,7 +37,7 @@ def classify(name):
     n = name.lower()
     if "exporting to" in n:
         return "export"
-    if any(k in n for k in ["load metadata", "resolve", "from ", "sha256:", "extracting"]):
+    if any(k in n for k in ["auth", "load metadata", "resolve", "from ", "sha256:", "extracting"]):
         return "pull"
     if any(k in n for k in ["run ", "copy ", "workdir"]):
         return "build"
