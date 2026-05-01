@@ -78,6 +78,17 @@ def process_events(lines, live=False):
                     cached = " (cached)" if vertices[d]["cached"] else ""
                     if name and not name.startswith("[internal]"):
                         print(f"  < {name} [{fmt_duration(dur)}{cached}]", file=sys.stderr, flush=True)
+        if live:
+            for log in status.get("logs", []):
+                data = log.get("data")
+                if data:
+                    try:
+                        import base64
+                        text = base64.b64decode(data).decode("utf-8", errors="replace")
+                    except Exception:
+                        text = str(data)
+                    for line_text in text.splitlines():
+                        print(f"    {line_text}", file=sys.stderr, flush=True)
     return vertices
 
 
