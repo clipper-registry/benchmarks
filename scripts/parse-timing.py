@@ -37,7 +37,7 @@ def classify(name):
     n = name.lower()
     if "exporting to" in n:
         return "export"
-    if any(k in n for k in ["auth", "load metadata", "resolve", "from ", "sha256:", "extracting"]):
+    if any(k in n for k in ["load metadata", "resolve", "from ", "sha256:", "extracting"]):
         return "pull"
     if any(k in n for k in ["run ", "copy ", "workdir"]):
         return "build"
@@ -93,36 +93,47 @@ def process_events(lines, live=False):
 
 
 def summary(vertices):
-    phases = {"pull": [], "build": [], "export": [], "other": []}
+    # Collect all vertex timestamps.
+    all_times = []
+    pull_ends = []
+    export_starts = []
+
     for v in vertices.values():
         if not v["started"] or not v["completed"]:
             continue
+        s = parse_time(v["started"])
+        e = parse_time(v["completed"])
+        all_times.append((s, e))
         phase = classify(v["name"])
-        phases[phase].append((parse_time(v["started"]), parse_time(v["completed"])))
+        if phase == "pull":
+            pull_ends.append(e)
+        if phase == "export":
+            export_starts.append(s)
 
-    global_start, global_end = None, None
+    if not all_times:
+        return []
+
+    global_start = min(s for s, e in all_times)
+    global_end = max(e for s, e in all_times)
+
     results = []
-    for phase in ["pull", "build", "export"]:
-        entries = phases[phase]
-        if not entries:
-            continue
-        earliest = min(s for s, e in entries)
-        latest = max(e for s, e in entries)
-        dur = (latest - earliest).total_seconds()
-        results.append((phase.capitalize(), dur))
-        if global_start is None or earliest < global_start:
-            global_start = earliest
-        if global_end is None or latest > global_end:
-            global_end = latest
 
-    for s, e in phases["other"]:
-        if global_start is None or s < global_start:
-            global_start = s
-        if global_end is None or e > global_end:
-            global_end = e
+    # Pull: from time 0 (global start) to the last pull vertex completing.
+    if pull_ends:
+        pull_end = max(pull_ends)
+        results.append(("Pull", (pull_end - global_start).total_seconds()))
+    else:
+        pull_end = global_start
 
-    if global_start and global_end:
-        results.append(("Total", (global_end - global_start).total_seconds()))
+    # Export: from the first "exporting to" vertex starting to the end.
+    if export_starts:
+        export_start = min(export_starts)
+        results.append(("Build", (export_start - pull_end).total_seconds()))
+        results.append(("Export", (global_end - export_start).total_seconds()))
+    else:
+        results.append(("Build", (global_end - pull_end).total_seconds()))
+
+    results.append(("Total", (global_end - global_start).total_seconds()))
 
     return results
 
