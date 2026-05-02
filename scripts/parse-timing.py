@@ -7,30 +7,10 @@ as it happens, and writes a timing summary at the end.
 Summary mode (--summary FILE): reads a saved jsonl file and outputs
 a markdown timing table to stdout.
 """
+import base64
 import json
 import sys
 from datetime import datetime
-
-
-def parse_time(s):
-    s = s.replace("Z", "+00:00")
-    if "." in s:
-        dot = s.index(".")
-        plus = s.find("+", dot)
-        if plus == -1:
-            plus = s.find("-", dot + 1)
-        if plus == -1:
-            s = s[:dot + 7] + "+00:00"
-        else:
-            s = s[:dot + 7] + s[plus:]
-    return datetime.fromisoformat(s)
-
-
-def fmt_duration(seconds):
-    m, s = divmod(int(seconds), 60)
-    if m > 0:
-        return f"{m}m {s:02d}s"
-    return f"{s}s"
 
 
 def classify(name):
@@ -72,18 +52,16 @@ def process_events(lines, live=False):
                 vertices[d]["completed"] = v["completed"]
                 if live:
                     name = vertices[d]["name"]
-                    started = parse_time(vertices[d]["started"])
-                    completed = parse_time(v["completed"])
-                    dur = (completed - started).total_seconds()
+                    s = datetime.fromisoformat(vertices[d]["started"])
+                    e = datetime.fromisoformat(v["completed"])
                     cached = " (cached)" if vertices[d]["cached"] else ""
                     if name and not name.startswith("[internal]"):
-                        print(f"  < {name} [{fmt_duration(dur)}{cached}]", file=sys.stderr, flush=True)
+                        print(f"  < {name} [{str(e - s)}{cached}]", file=sys.stderr, flush=True)
         if live:
             for log in status.get("logs", []):
                 data = log.get("data")
                 if data:
                     try:
-                        import base64
                         text = base64.b64decode(data).decode("utf-8", errors="replace")
                     except Exception:
                         text = str(data)
@@ -93,7 +71,6 @@ def process_events(lines, live=False):
 
 
 def summary(vertices):
-    # Collect all vertex timestamps.
     all_times = []
     pull_ends = []
     export_starts = []
@@ -101,8 +78,8 @@ def summary(vertices):
     for v in vertices.values():
         if not v["started"] or not v["completed"]:
             continue
-        s = parse_time(v["started"])
-        e = parse_time(v["completed"])
+        s = datetime.fromisoformat(v["started"])
+        e = datetime.fromisoformat(v["completed"])
         all_times.append((s, e))
         phase = classify(v["name"])
         if phase == "pull":
@@ -118,22 +95,20 @@ def summary(vertices):
 
     results = []
 
-    # Pull: from time 0 (global start) to the last pull vertex completing.
     if pull_ends:
         pull_end = max(pull_ends)
-        results.append(("Pull", (pull_end - global_start).total_seconds()))
+        results.append(("Pull", pull_end - global_start))
     else:
         pull_end = global_start
 
-    # Export: from the first "exporting to" vertex starting to the end.
     if export_starts:
         export_start = min(export_starts)
-        results.append(("Build", (export_start - pull_end).total_seconds()))
-        results.append(("Export", (global_end - export_start).total_seconds()))
+        results.append(("Build", export_start - pull_end))
+        results.append(("Export", global_end - export_start))
     else:
-        results.append(("Build", (global_end - pull_end).total_seconds()))
+        results.append(("Build", global_end - pull_end))
 
-    results.append(("Total", (global_end - global_start).total_seconds()))
+    results.append(("Total", global_end - global_start))
 
     return results
 
@@ -143,12 +118,12 @@ def main():
         with open(sys.argv[2]) as f:
             vertices = process_events(f, live=False)
         for name, dur in summary(vertices):
-            print(f"| {name} | {fmt_duration(dur)} |")
+            print(f"| {name} | {str(dur)} |")
     else:
         vertices = process_events(sys.stdin, live=True)
         print("", file=sys.stderr)
         for name, dur in summary(vertices):
-            print(f"  {name}: {fmt_duration(dur)}", file=sys.stderr, flush=True)
+            print(f"  {name}: {str(dur)}", file=sys.stderr, flush=True)
 
 
 if __name__ == "__main__":
