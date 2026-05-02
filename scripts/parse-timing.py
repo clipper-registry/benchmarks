@@ -56,7 +56,7 @@ def process_events(lines, live=False):
                     e = datetime.fromisoformat(v["completed"])
                     cached = " (cached)" if vertices[d]["cached"] else ""
                     if name and not name.startswith("[internal]"):
-                        print(f"  < {name} [{str(e - s)}{cached}]", file=sys.stderr, flush=True)
+                        print(f"  < {name} [{e - s}{cached}]", file=sys.stderr, flush=True)
         if live:
             for log in status.get("logs", []):
                 data = log.get("data")
@@ -118,12 +118,12 @@ def main():
         with open(sys.argv[2]) as f:
             vertices = process_events(f, live=False)
         for name, dur in summary(vertices):
-            print(f"| {name} | {str(dur)} |")
+            print(f"| {name} | {dur} |")
     else:
         vertices = process_events(sys.stdin, live=True)
         print("", file=sys.stderr)
         for name, dur in summary(vertices):
-            print(f"  {name}: {str(dur)}", file=sys.stderr, flush=True)
+            print(f"  {name}: {dur}", file=sys.stderr, flush=True)
 
 
 if __name__ == "__main__":
