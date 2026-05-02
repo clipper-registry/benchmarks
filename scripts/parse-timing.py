@@ -114,16 +114,25 @@ def summary(vertices):
 
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] == "--summary":
-        with open(sys.argv[2]) as f:
-            vertices = process_events(f, live=False)
-        for name, dur in summary(vertices):
-            print(f"| {name} | {dur} |")
-    else:
-        vertices = process_events(sys.stdin, live=True)
-        print("", file=sys.stderr)
-        for name, dur in summary(vertices):
-            print(f"  {name}: {dur}", file=sys.stderr, flush=True)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--summary-file", help="write markdown summary to this file")
+    parser.add_argument("--name", help="heading for the summary table")
+    args = parser.parse_args()
+
+    vertices = process_events(sys.stdin, live=True)
+    print("", file=sys.stderr)
+    results = summary(vertices)
+    for name, dur in results:
+        print(f"  {name}: {dur}", file=sys.stderr, flush=True)
+
+    if args.summary_file and results:
+        with open(args.summary_file, "a") as f:
+            f.write(f"### {args.name or 'Benchmark'}\n")
+            f.write("| Phase | Duration |\n")
+            f.write("|-------|----------|\n")
+            for name, dur in results:
+                f.write(f"| {name} | {dur} |\n")
 
 
 if __name__ == "__main__":

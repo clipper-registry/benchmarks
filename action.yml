@@ -83,11 +83,6 @@ runs:
           --build-arg SOURCE_DATE_EPOCH=0 \
           --output "${{ inputs.output }}" \
           "$ACTION_PATH/${{ inputs.context }}" 2>&1 \
-          | tee /tmp/build-${SAFE_NAME}.jsonl \
-          | python3 "$ACTION_PATH/scripts/parse-timing.py"
-        {
-          echo "### ${{ inputs.name }}"
-          echo "| Phase | Duration |"
-          echo "|-------|----------|"
-          python3 "$ACTION_PATH/scripts/parse-timing.py" --summary /tmp/build-${SAFE_NAME}.jsonl
-        } >> $GITHUB_STEP_SUMMARY
+          | python3 "$ACTION_PATH/scripts/parse-timing.py" \
+              --summary-file "$GITHUB_STEP_SUMMARY" \
+              --name "${{ inputs.name }}"
