@@ -74,14 +74,22 @@ runs:
         username: ${{ inputs.registry-username }}
         password: ${{ inputs.registry-password }}
 
+    - name: Sanitize name
+      id: meta
+      shell: bash
+      env:
+        RAW_NAME: ${{ inputs.name }}
+      run: |
+        SAFE="${RAW_NAME// /-}"
+        SAFE="${SAFE////-}"
+        echo "safe-name=$SAFE" >> "$GITHUB_OUTPUT"
+
     - name: Build and push
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
-        SAFE_NAME: ${{ inputs.name }}
+        SAFE_NAME: ${{ steps.meta.outputs.safe-name }}
       run: |
-        SAFE_NAME="${SAFE_NAME// /-}"
-        SAFE_NAME="${SAFE_NAME////-}"
         echo "Action path: $ACTION_PATH"
         ls "$ACTION_PATH/scripts/" || true
         docker buildx build \
@@ -102,6 +110,6 @@ runs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: buildx-rawjson-${{ inputs.name }}
+        name: buildx-rawjson-${{ steps.meta.outputs.safe-name }}
         path: /tmp/buildx-*.jsonl
         retention-days: 7
