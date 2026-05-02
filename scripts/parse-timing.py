@@ -10,7 +10,7 @@ a markdown timing table to stdout.
 import base64
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 def classify(name):
@@ -56,7 +56,7 @@ def process_events(lines, live=False):
                     e = datetime.fromisoformat(v["completed"])
                     cached = " (cached)" if vertices[d]["cached"] else ""
                     if name and not name.startswith("[internal]"):
-                        print(f"  < {name} [{e - s}{cached}]", file=sys.stderr, flush=True)
+                        print(f"  < {name} [{timedelta(seconds=int((e - s).total_seconds()))}{cached}]", file=sys.stderr, flush=True)
         if live:
             for log in status.get("logs", []):
                 data = log.get("data")
@@ -95,20 +95,23 @@ def summary(vertices):
 
     results = []
 
+    def secs(td):
+        return timedelta(seconds=int(td.total_seconds()))
+
     if pull_ends:
         pull_end = max(pull_ends)
-        results.append(("Pull", pull_end - global_start))
+        results.append(("Pull", secs(pull_end - global_start)))
     else:
         pull_end = global_start
 
     if export_starts:
         export_start = min(export_starts)
-        results.append(("Build", export_start - pull_end))
-        results.append(("Export", global_end - export_start))
+        results.append(("Build", secs(export_start - pull_end)))
+        results.append(("Export", secs(global_end - export_start)))
     else:
-        results.append(("Build", global_end - pull_end))
+        results.append(("Build", secs(global_end - pull_end)))
 
-    results.append(("Total", global_end - global_start))
+    results.append(("Total", secs(global_end - global_start)))
 
     return results
 
