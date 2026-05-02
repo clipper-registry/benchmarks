@@ -2,7 +2,7 @@ name: Push benchmarks
 
 on:
   push:
-    branches: [main]
+    branches: [main, cache-export]
   workflow_dispatch:
     inputs:
       buildkit_image:
@@ -46,16 +46,22 @@ jobs:
             base: clipper.dev/clipper/cuda:12.9.0-runtime-ubuntu24.04
             output-type: clipper
             output-repo: clipper.dev/clipper/ci-bench
+            cache-from: type=registry,ref=clipper.dev/clipper/ci-bench-cache:latest
+            cache-to: type=registry,ref=clipper.dev/clipper/ci-bench-cache:latest,mode=max
           - registry: ghcr
             registry-host: ghcr.io
             registry-password-secret: GITHUB_TOKEN
             output-type: image
             output-repo: ghcr.io/${{ github.repository }}/ci-bench
+            cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/ci-bench-cache:latest
+            cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/ci-bench-cache:latest,mode=max
           - registry: dockerhub
             registry-username-secret: DOCKERHUB_USERNAME
             registry-password-secret: DOCKERHUB_TOKEN
             output-type: image
             output-repo: clipperregistry/ci-bench
+            cache-from: type=registry,ref=clipperregistry/ci-bench-cache:latest
+            cache-to: type=registry,ref=clipperregistry/ci-bench-cache:latest,mode=max
     steps:
       - uses: actions/checkout@v6
         with:
@@ -84,3 +90,5 @@ jobs:
           base: ${{ matrix.base || 'nvidia/cuda:12.9.0-runtime-ubuntu24.04' }}
           context: ${{ matrix.workload }}
           output: "type=${{ matrix.output-type }},name=${{ matrix.output-repo }}:${{ github.run_id }},push=true"
+          cache-from: ${{ matrix.cache-from || '' }}
+          cache-to: ${{ matrix.cache-to || '' }}
