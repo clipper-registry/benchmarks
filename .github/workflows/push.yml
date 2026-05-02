@@ -39,7 +39,7 @@ jobs:
         include:
           # Registry config
           - registry: clipper
-            buildkit-image: ${{ inputs.buildkit_image || 'ghcr.io/clipper-registry/buildkit:fb8e8fbcf6eb32e11aed3510d01041b9982f7915' }}
+            buildkit-image: ${{ inputs.buildkit_image || 'ghcr.io/clipper-registry/buildkit:87dbf6bcaa60c5e5daddda9657899e5b54e50b94' }}
             registry-host: clipper.dev
             registry-username: token
             registry-password-secret: CLIPPER_CI_CREDENTIALS
