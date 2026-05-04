@@ -4,19 +4,10 @@ on:
   push:
     branches: [main, cache-export]
   workflow_dispatch:
-    inputs:
-      image_a:
-        description: "First image to pull (e.g. clipper.dev/clipper/ci-bench:latest)"
-        required: false
-        default: ""
-      image_b:
-        description: "Second image to pull (e.g. ghcr.io/clipper-registry/benchmarks/ci-bench:latest)"
-        required: false
-        default: ""
 
 jobs:
   pull:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.image }} (${{ matrix.registry }})
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -24,54 +15,45 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        tag: ["0.17.5", "0.17.6"]
+        registry: [clipper, dockerhub]
         include:
-          - name: clipper
-            image: ${{ inputs.image_a || 'clipper.dev/clipper/ci-bench:latest' }}
-            registry: clipper.dev
+          - registry: clipper
+            repo: clipper.dev/clipper/ollama
+            registry-host: clipper.dev
             registry-username: token
             registry-password-secret: CLIPPER_CI_CREDENTIALS
-          - name: ghcr
-            image: ${{ inputs.image_b || 'ghcr.io/clipper-registry/benchmarks/ci-bench:latest' }}
-            registry: ghcr.io
-            registry-password-secret: GITHUB_TOKEN
-          - name: dockerhub
-            image: clipperregistry/ci-bench:latest
-            registry-password-secret: DOCKERHUB_TOKEN
-            registry-username-secret: DOCKERHUB_USERNAME
+          - registry: dockerhub
+            repo: ollama/ollama
     steps:
       - uses: actions/checkout@v6
         with:
           repository: clipper-registry/benchmarks
 
       - name: Log in to registry
-        if: matrix.registry-password-secret != ''
+        if: matrix.registry-password-secret
         uses: docker/login-action@v4
         with:
-          registry: ${{ matrix.registry || '' }}
+          registry: ${{ matrix.registry-host || '' }}
           username: >-
             ${{
               matrix.registry-username ||
-              matrix.registry-username-secret == 'DOCKERHUB_USERNAME' && secrets.DOCKERHUB_USERNAME ||
-              matrix.registry-password-secret == 'GITHUB_TOKEN' && github.actor ||
+              matrix.registry-password-secret == 'CLIPPER_CI_CREDENTIALS' && 'token' ||
               ''
             }}
           password: >-
             ${{
               matrix.registry-password-secret == 'CLIPPER_CI_CREDENTIALS' && secrets.CLIPPER_CI_CREDENTIALS ||
-              matrix.registry-password-secret == 'DOCKERHUB_TOKEN' && secrets.DOCKERHUB_TOKEN ||
-              matrix.registry-password-secret == 'GITHUB_TOKEN' && secrets.GITHUB_TOKEN ||
               ''
             }}
 
       - name: Pull image
         shell: bash
         run: |
-          IMAGE="${{ matrix.image }}"
-          echo "### Pull: ${{ matrix.name }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "Image: \`${IMAGE}\`" >> "$GITHUB_STEP_SUMMARY"
+          IMAGE="${{ matrix.repo }}:${{ matrix.tag }}"
+          echo "### Pull: ${IMAGE}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
-          # Time the pull
           START=$(date +%s%N)
           docker pull "$IMAGE" 2>&1
           END=$(date +%s%N)
@@ -89,4 +71,5 @@ jobs:
       - name: Inspect image
         shell: bash
         run: |
-          docker image inspect "${{ matrix.image }}" --format '{{.Size}}' | awk '{printf "Image size: %.1f MB\n", $1/1048576}'
+          IMAGE="${{ matrix.repo }}:${{ matrix.tag }}"
+          docker image inspect "$IMAGE" --format '{{.Size}}' | awk '{printf "Image size: %.1f MB\n", $1/1048576}'
