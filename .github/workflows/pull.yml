@@ -1,0 +1,92 @@
+name: Pull benchmarks
+
+on:
+  push:
+    branches: [main, cache-export]
+  workflow_dispatch:
+    inputs:
+      image_a:
+        description: "First image to pull (e.g. clipper.dev/clipper/ci-bench:latest)"
+        required: false
+        default: ""
+      image_b:
+        description: "Second image to pull (e.g. ghcr.io/clipper-registry/benchmarks/ci-bench:latest)"
+        required: false
+        default: ""
+
+jobs:
+  pull:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: clipper
+            image: ${{ inputs.image_a || 'clipper.dev/clipper/ci-bench:latest' }}
+            registry: clipper.dev
+            registry-username: token
+            registry-password-secret: CLIPPER_CI_CREDENTIALS
+          - name: ghcr
+            image: ${{ inputs.image_b || 'ghcr.io/clipper-registry/benchmarks/ci-bench:latest' }}
+            registry: ghcr.io
+            registry-password-secret: GITHUB_TOKEN
+          - name: dockerhub
+            image: clipperregistry/ci-bench:latest
+            registry-password-secret: DOCKERHUB_TOKEN
+            registry-username-secret: DOCKERHUB_USERNAME
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: clipper-registry/benchmarks
+
+      - name: Log in to registry
+        if: matrix.registry-password-secret != ''
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ matrix.registry || '' }}
+          username: >-
+            ${{
+              matrix.registry-username ||
+              matrix.registry-username-secret == 'DOCKERHUB_USERNAME' && secrets.DOCKERHUB_USERNAME ||
+              matrix.registry-password-secret == 'GITHUB_TOKEN' && github.actor ||
+              ''
+            }}
+          password: >-
+            ${{
+              matrix.registry-password-secret == 'CLIPPER_CI_CREDENTIALS' && secrets.CLIPPER_CI_CREDENTIALS ||
+              matrix.registry-password-secret == 'DOCKERHUB_TOKEN' && secrets.DOCKERHUB_TOKEN ||
+              matrix.registry-password-secret == 'GITHUB_TOKEN' && secrets.GITHUB_TOKEN ||
+              ''
+            }}
+
+      - name: Pull image
+        shell: bash
+        run: |
+          IMAGE="${{ matrix.image }}"
+          echo "### Pull: ${{ matrix.name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Image: \`${IMAGE}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          # Time the pull
+          START=$(date +%s%N)
+          docker pull "$IMAGE" 2>&1
+          END=$(date +%s%N)
+
+          ELAPSED_MS=$(( (END - START) / 1000000 ))
+          ELAPSED_S=$(( ELAPSED_MS / 1000 ))
+          ELAPSED_FRAC=$(( ELAPSED_MS % 1000 ))
+          printf "| Phase | Duration |\n" >> "$GITHUB_STEP_SUMMARY"
+          printf "|-------|----------|\n" >> "$GITHUB_STEP_SUMMARY"
+          printf "| Pull  | %d.%03ds  |\n" "$ELAPSED_S" "$ELAPSED_FRAC" >> "$GITHUB_STEP_SUMMARY"
+
+          echo ""
+          echo "Pull completed in ${ELAPSED_S}.${ELAPSED_FRAC}s"
+
+      - name: Inspect image
+        shell: bash
+        run: |
+          docker image inspect "${{ matrix.image }}" --format '{{.Size}}' | awk '{printf "Image size: %.1f MB\n", $1/1048576}'
