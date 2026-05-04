@@ -47,6 +47,8 @@ jobs:
 
       - name: Pull 0.17.5
         shell: bash
+        env:
+          CLIPPER_CREDENTIALS: ${{ secrets.CLIPPER_CI_CREDENTIALS }}
         run: |
           IMAGE="${{ matrix.repo }}:0.17.5"
           echo "### Pull: ${IMAGE}" >> "$GITHUB_STEP_SUMMARY"
@@ -72,6 +74,8 @@ jobs:
 
       - name: Pull 0.17.6
         shell: bash
+        env:
+          CLIPPER_CREDENTIALS: ${{ secrets.CLIPPER_CI_CREDENTIALS }}
         run: |
           IMAGE="${{ matrix.repo }}:0.17.6"
           echo "### Pull: ${IMAGE}" >> "$GITHUB_STEP_SUMMARY"
