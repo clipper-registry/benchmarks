@@ -7,7 +7,7 @@ on:
 
 jobs:
   pull:
-    name: ${{ matrix.image }} (${{ matrix.registry }})
+    name: ${{ matrix.registry }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -15,8 +15,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tag: ["0.17.5", "0.17.6"]
-        registry: [clipper, dockerhub]
         include:
           - registry: clipper
             repo: clipper.dev/clipper/ollama
@@ -38,7 +36,6 @@ jobs:
           username: >-
             ${{
               matrix.registry-username ||
-              matrix.registry-password-secret == 'CLIPPER_CI_CREDENTIALS' && 'token' ||
               ''
             }}
           password: >-
@@ -47,10 +44,10 @@ jobs:
               ''
             }}
 
-      - name: Pull image
+      - name: Pull 0.17.5
         shell: bash
         run: |
-          IMAGE="${{ matrix.repo }}:${{ matrix.tag }}"
+          IMAGE="${{ matrix.repo }}:0.17.5"
           echo "### Pull: ${IMAGE}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
@@ -64,12 +61,29 @@ jobs:
           printf "| Phase | Duration |\n" >> "$GITHUB_STEP_SUMMARY"
           printf "|-------|----------|\n" >> "$GITHUB_STEP_SUMMARY"
           printf "| Pull  | %d.%03ds  |\n" "$ELAPSED_S" "$ELAPSED_FRAC" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
 
-          echo ""
+          docker image inspect "$IMAGE" --format '{{.Size}}' | awk '{printf "Image size: %.1f MB\n", $1/1048576}'
           echo "Pull completed in ${ELAPSED_S}.${ELAPSED_FRAC}s"
 
-      - name: Inspect image
+      - name: Pull 0.17.6
         shell: bash
         run: |
-          IMAGE="${{ matrix.repo }}:${{ matrix.tag }}"
+          IMAGE="${{ matrix.repo }}:0.17.6"
+          echo "### Pull: ${IMAGE}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          START=$(date +%s%N)
+          docker pull "$IMAGE" 2>&1
+          END=$(date +%s%N)
+
+          ELAPSED_MS=$(( (END - START) / 1000000 ))
+          ELAPSED_S=$(( ELAPSED_MS / 1000 ))
+          ELAPSED_FRAC=$(( ELAPSED_MS % 1000 ))
+          printf "| Phase | Duration |\n" >> "$GITHUB_STEP_SUMMARY"
+          printf "|-------|----------|\n" >> "$GITHUB_STEP_SUMMARY"
+          printf "| Pull  | %d.%03ds  |\n" "$ELAPSED_S" "$ELAPSED_FRAC" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
           docker image inspect "$IMAGE" --format '{{.Size}}' | awk '{printf "Image size: %.1f MB\n", $1/1048576}'
+          echo "Pull completed in ${ELAPSED_S}.${ELAPSED_FRAC}s"
