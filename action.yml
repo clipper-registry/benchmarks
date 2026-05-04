@@ -54,7 +54,11 @@ runs:
   steps:
     - name: Free Disk Space
       shell: bash
-      run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+      run: |
+        CORES=$(nproc)
+        if [ "$CORES" -lt 4 ]; then
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+        fi
 
     - name: Login to GHCR
       if: inputs.ghcr-token != ''
