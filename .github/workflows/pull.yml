@@ -21,6 +21,7 @@ jobs:
             registry-host: clipper.dev
             registry-username: token
             registry-password-secret: CLIPPER_CI_CREDENTIALS
+            use-clipper: true
           - registry: dockerhub
             repo: ollama/ollama
     steps:
@@ -28,16 +29,16 @@ jobs:
         with:
           repository: clipper-registry/benchmarks
 
+      - name: Install clipper CLI
+        if: matrix.use-clipper
+        uses: clipper-registry/setup-clipper@v1
+
       - name: Log in to registry
         if: matrix.registry-password-secret
         uses: docker/login-action@v4
         with:
           registry: ${{ matrix.registry-host || '' }}
-          username: >-
-            ${{
-              matrix.registry-username ||
-              ''
-            }}
+          username: ${{ matrix.registry-username || '' }}
           password: >-
             ${{
               matrix.registry-password-secret == 'CLIPPER_CI_CREDENTIALS' && secrets.CLIPPER_CI_CREDENTIALS ||
@@ -52,7 +53,11 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           START=$(date +%s%N)
-          docker pull "$IMAGE" 2>&1
+          if [ "${{ matrix.use-clipper }}" = "true" ]; then
+            clipper pull "$IMAGE" 2>&1
+          else
+            docker pull "$IMAGE" 2>&1
+          fi
           END=$(date +%s%N)
 
           ELAPSED_MS=$(( (END - START) / 1000000 ))
@@ -63,7 +68,6 @@ jobs:
           printf "| Pull  | %d.%03ds  |\n" "$ELAPSED_S" "$ELAPSED_FRAC" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
-          docker image inspect "$IMAGE" --format '{{.Size}}' | awk '{printf "Image size: %.1f MB\n", $1/1048576}'
           echo "Pull completed in ${ELAPSED_S}.${ELAPSED_FRAC}s"
 
       - name: Pull 0.17.6
@@ -74,7 +78,11 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           START=$(date +%s%N)
-          docker pull "$IMAGE" 2>&1
+          if [ "${{ matrix.use-clipper }}" = "true" ]; then
+            clipper pull "$IMAGE" 2>&1
+          else
+            docker pull "$IMAGE" 2>&1
+          fi
           END=$(date +%s%N)
 
           ELAPSED_MS=$(( (END - START) / 1000000 ))
@@ -85,5 +93,4 @@ jobs:
           printf "| Pull  | %d.%03ds  |\n" "$ELAPSED_S" "$ELAPSED_FRAC" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
-          docker image inspect "$IMAGE" --format '{{.Size}}' | awk '{printf "Image size: %.1f MB\n", $1/1048576}'
           echo "Pull completed in ${ELAPSED_S}.${ELAPSED_FRAC}s"
