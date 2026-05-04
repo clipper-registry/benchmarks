@@ -56,9 +56,9 @@ jobs:
 
           START=$(date +%s%N)
           if [ "${{ matrix.use-clipper }}" = "true" ]; then
-            sudo -E clipper pull "$IMAGE" 2>&1
+            sudo -E clipper pull --platform linux/arm64 "$IMAGE" 2>&1
           else
-            sudo nerdctl pull "$IMAGE" 2>&1
+            sudo nerdctl pull --platform linux/arm64 "$IMAGE" 2>&1
           fi
           END=$(date +%s%N)
 
@@ -83,9 +83,9 @@ jobs:
 
           START=$(date +%s%N)
           if [ "${{ matrix.use-clipper }}" = "true" ]; then
-            sudo -E clipper pull "$IMAGE" 2>&1
+            sudo -E clipper pull --platform linux/arm64 "$IMAGE" 2>&1
           else
-            sudo nerdctl pull "$IMAGE" 2>&1
+            sudo nerdctl pull --platform linux/arm64 "$IMAGE" 2>&1
           fi
           END=$(date +%s%N)
 
