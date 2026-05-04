@@ -61,7 +61,7 @@ jobs:
         with:
           repository: clipper-registry/benchmarks
       - name: Workflow Telemetry
-        uses: catchpoint/workflow-telemetry-action@v2.0.0
+        uses: whywaita/workflow-telemetry-action@use_quickchart
         with:
           comment_on_pr: false
           metric_frequency: 1.0
