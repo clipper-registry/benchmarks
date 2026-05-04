@@ -60,7 +60,8 @@ jobs:
       - uses: actions/checkout@v6
         with:
           repository: clipper-registry/benchmarks
-
+      - name: Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@v2.0.0
       - uses: ./
         with:
           name: ${{ matrix.workload }} / ${{ matrix.registry }}
