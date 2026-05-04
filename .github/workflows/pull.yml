@@ -58,7 +58,7 @@ jobs:
           if [ "${{ matrix.use-clipper }}" = "true" ]; then
             sudo -E clipper pull "$IMAGE" 2>&1
           else
-            docker pull "$IMAGE" 2>&1
+            sudo nerdctl pull "$IMAGE" 2>&1
           fi
           END=$(date +%s%N)
 
@@ -85,7 +85,7 @@ jobs:
           if [ "${{ matrix.use-clipper }}" = "true" ]; then
             sudo -E clipper pull "$IMAGE" 2>&1
           else
-            docker pull "$IMAGE" 2>&1
+            sudo nerdctl pull "$IMAGE" 2>&1
           fi
           END=$(date +%s%N)
 
