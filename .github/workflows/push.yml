@@ -39,28 +39,28 @@ jobs:
         include:
           # Registry config
           - registry: clipper
-            buildkit-image: ${{ inputs.buildkit_image || 'ghcr.io/clipper-registry/buildkit:87992017829a5a6f3740f50f932b24be7bcaa00a' }}
+            buildkit-image: ${{ inputs.buildkit_image || 'ghcr.io/clipper-registry/buildkit:4d671f4a76d3ff274842c0c13a6a8670b45730dd' }}
             registry-host: clipper.dev
             registry-username: token
             registry-password-secret: CLIPPER_CI_CREDENTIALS
             base: clipper.dev/clipper/cuda:12.9.0-runtime-ubuntu24.04
             output-type: clipper
             output-repo: clipper.dev/clipper/ci-bench
-            # cache-from: type=registry,ref=clipper.dev/clipper/ci-bench-cache:latest
+            cache-from: type=registry,ref=clipper.dev/clipper/ci-bench-cache:latest
             cache-to: type=registry,ref=clipper.dev/clipper/ci-bench-cache:latest,mode=max
           - registry: ghcr
             registry-host: ghcr.io
             registry-password-secret: GITHUB_TOKEN
             output-type: image
             output-repo: ghcr.io/${{ github.repository }}/ci-bench
-            # cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/ci-bench-cache:latest
+            cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/ci-bench-cache:latest
             cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/ci-bench-cache:latest,mode=max
           - registry: dockerhub
             registry-username-secret: DOCKERHUB_USERNAME
             registry-password-secret: DOCKERHUB_TOKEN
             output-type: image
             output-repo: clipperregistry/ci-bench
-            # cache-from: type=registry,ref=clipperregistry/ci-bench-cache:latest
+            cache-from: type=registry,ref=clipperregistry/ci-bench-cache:latest
             cache-to: type=registry,ref=clipperregistry/ci-bench-cache:latest,mode=max
     steps:
       - uses: actions/checkout@v6
