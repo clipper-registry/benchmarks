@@ -32,6 +32,10 @@ inputs:
     description: "Additional apt packages to install (space-separated)"
     required: false
     default: ""
+  debug:
+    description: "Enable buildkitd debug logging and dump logs after build"
+    required: false
+    default: ""
   registry:
     description: "Registry to log in to (e.g. clipper.dev, ghcr.io)"
     required: false
@@ -73,7 +77,7 @@ runs:
       uses: docker/setup-buildx-action@v4
       with:
         driver-opts: ${{ inputs.buildkit-image && format('image={0}', inputs.buildkit-image) || '' }}
-        buildkitd-flags: --debug
+        buildkitd-flags: ${{ inputs.debug && '--debug' || '' }}
 
     - name: Log in to registry
       if: inputs.registry-password != ''
@@ -117,7 +121,7 @@ runs:
               --name "${{ inputs.name }}"
 
     - name: Dump buildkitd logs
-      if: always()
+      if: inputs.debug
       shell: bash
       run: |
         CONTAINER=$(docker ps -q --filter "name=buildx_buildkit_${{ steps.buildx.outputs.name }}")
