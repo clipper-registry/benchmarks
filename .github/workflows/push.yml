@@ -25,7 +25,7 @@ on:
         required: true
 
 env:
-  CLIPPER_BUILDKIT: ${{ inputs.buildkit_image || 'ghcr.io/clipper-registry/buildkit:fb2165f650eb51f07f0bc403c7426545256b286c' }}
+  CLIPPER_BUILDKIT: ${{ inputs.buildkit_image || 'ghcr.io/clipper-registry/buildkit:61d7876393f6f8604d274a0392fac012dafb8e39' }}
 
 jobs:
   push:
