@@ -2,7 +2,7 @@ name: Push benchmarks
 
 on:
   push:
-    branches: [main]
+    branches: [main, cache-export]
   workflow_dispatch:
     inputs:
       buildkit_image:
@@ -24,9 +24,12 @@ on:
       DOCKERHUB_TOKEN:
         required: true
 
+env:
+  CLIPPER_BUILDKIT: ${{ inputs.buildkit_image || 'ghcr.io/clipper-registry/buildkit:61d7876393f6f8604d274a0392fac012dafb8e39' }}
+
 jobs:
-  bench:
-    name: ${{ matrix.workload }} / ${{ matrix.registry }}
+  push:
+    name: ${{ matrix.scenario }} / ${{ matrix.registry }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,28 +37,30 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        workload: [push]
+        scenario: [full-cache, no-cache, partial-cache]
         registry: [clipper, ghcr, dockerhub]
         include:
-          # Registry config
+          # --- Per-registry config ---
           - registry: clipper
-            buildkit-image: ${{ inputs.buildkit_image || 'ghcr.io/clipper-registry/buildkit:latest' }}
             registry-host: clipper.dev
             registry-username: token
             registry-password-secret: CLIPPER_CI_CREDENTIALS
             base: clipper.dev/clipper/cuda:12.9.0-runtime-ubuntu24.04
             output-type: clipper
             output-repo: clipper.dev/clipper/ci-bench
+            cache-repo: clipper.dev/clipper/ci-bench-cache
           - registry: ghcr
             registry-host: ghcr.io
             registry-password-secret: GITHUB_TOKEN
             output-type: image
             output-repo: ghcr.io/${{ github.repository }}/ci-bench
+            cache-repo: ghcr.io/${{ github.repository }}/ci-bench-cache
           - registry: dockerhub
             registry-username-secret: DOCKERHUB_USERNAME
             registry-password-secret: DOCKERHUB_TOKEN
             output-type: image
             output-repo: clipperregistry/ci-bench
+            cache-repo: clipperregistry/ci-bench-cache
     steps:
       - uses: actions/checkout@v6
         with:
@@ -63,8 +68,8 @@ jobs:
 
       - uses: ./
         with:
-          name: ${{ matrix.workload }} / ${{ matrix.registry }}
-          buildkit-image: ${{ matrix.buildkit-image || '' }}
+          name: ${{ matrix.scenario }} / ${{ matrix.registry }}
+          buildkit-image: ${{ matrix.registry == 'clipper' && env.CLIPPER_BUILDKIT || '' }}
           ghcr-token: ${{ secrets.GITHUB_TOKEN }}
           registry: ${{ matrix.registry-host || '' }}
           registry-username: >-
@@ -82,5 +87,13 @@ jobs:
               ''
             }}
           base: ${{ matrix.base || 'nvidia/cuda:12.9.0-runtime-ubuntu24.04' }}
-          context: ${{ matrix.workload }}
           output: "type=${{ matrix.output-type }},name=${{ matrix.output-repo }}:${{ github.run_id }},push=true"
+          cache-from: ${{ matrix.scenario != 'no-cache' && format('type=registry,ref={0}:latest', matrix.cache-repo) || '' }}
+          cache-to: >-
+            ${{
+              matrix.scenario == 'partial-cache'
+                && format('type=registry,ref={0}-extra:latest,mode=max', matrix.cache-repo)
+                || format('type=registry,ref={0}:latest,mode=max', matrix.cache-repo)
+            }}
+          extra-packages: ${{ matrix.scenario == 'partial-cache' && 'curl wget' || '' }}
+          debug: ${{ matrix.scenario == 'partial-cache' && 'true' || '' }}

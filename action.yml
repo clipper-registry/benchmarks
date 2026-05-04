@@ -20,6 +20,22 @@ inputs:
     description: "BuildKit image for the buildx driver"
     required: false
     default: ""
+  cache-from:
+    description: "docker buildx build --cache-from value"
+    required: false
+    default: ""
+  cache-to:
+    description: "docker buildx build --cache-to value"
+    required: false
+    default: ""
+  extra-packages:
+    description: "Additional apt packages to install (space-separated)"
+    required: false
+    default: ""
+  debug:
+    description: "Enable buildkitd debug logging and dump logs after build"
+    required: false
+    default: ""
   registry:
     description: "Registry to log in to (e.g. clipper.dev, ghcr.io)"
     required: false
@@ -42,11 +58,15 @@ runs:
   steps:
     - name: Free Disk Space
       shell: bash
-      run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+      run: |
+        CORES=$(nproc)
+        if [ "$CORES" -lt 4 ]; then
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+        fi
 
     - name: Login to GHCR
       if: inputs.ghcr-token != ''
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
@@ -57,10 +77,11 @@ runs:
       uses: docker/setup-buildx-action@v4
       with:
         driver-opts: ${{ inputs.buildkit-image && format('image={0}', inputs.buildkit-image) || '' }}
+        buildkitd-flags: ${{ inputs.debug && '--debug' || '' }}
 
     - name: Log in to registry
       if: inputs.registry-password != ''
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ${{ inputs.registry || '' }}
         username: ${{ inputs.registry-username }}
@@ -88,17 +109,29 @@ runs:
           --progress=rawjson \
           --builder=${{ steps.buildx.outputs.name }} \
           --build-arg BASE=${{ inputs.base }} \
+          --build-arg EXTRA_PACKAGES="${{ inputs.extra-packages }}" \
           --build-arg SOURCE_DATE_EPOCH=0 \
           --output "${{ inputs.output }}" \
+          ${{ inputs.cache-from && format('--cache-from "{0}"', inputs.cache-from) || '' }} \
+          ${{ inputs.cache-to && format('--cache-to "{0}"', inputs.cache-to) || '' }} \
           "$ACTION_PATH/${{ inputs.context }}" 2>&1 \
           | tee "/tmp/buildx-${SAFE_NAME}.jsonl" \
           | python3 "$ACTION_PATH/scripts/parse-timing.py" \
               --summary-file "$GITHUB_STEP_SUMMARY" \
               --name "${{ inputs.name }}"
 
+    - name: Dump buildkitd logs
+      if: inputs.debug
+      shell: bash
+      run: |
+        CONTAINER=$(docker ps -q --filter "name=buildx_buildkit_${{ steps.buildx.outputs.name }}")
+        if [ -n "$CONTAINER" ]; then
+          docker logs "$CONTAINER" 2>&1 | tee /tmp/buildkitd-${{ steps.meta.outputs.safe-name }}.log | grep -i "makeChunkFetcher\|chunk\|fetch\|404\|error" || true
+        fi
+
     - name: Upload raw build log
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: buildx-rawjson-${{ steps.meta.outputs.safe-name }}
         path: /tmp/buildx-*.jsonl

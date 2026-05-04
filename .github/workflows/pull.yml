@@ -1,0 +1,107 @@
+name: Pull benchmarks
+
+on:
+  push:
+    branches: [main, cache-export]
+  workflow_dispatch:
+
+jobs:
+  pull:
+    name: ${{ matrix.registry }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - registry: clipper
+            repo: clipper.dev/clipper/ollama
+            registry-host: clipper.dev
+            registry-username: token
+            registry-password-secret: CLIPPER_CI_CREDENTIALS
+            use-clipper: true
+          - registry: dockerhub
+            repo: ollama/ollama
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: clipper-registry/benchmarks
+
+      - name: Install clipper CLI
+        if: matrix.use-clipper
+        uses: clipper-registry/setup-clipper@v1
+
+      - name: Install nerdctl
+        if: ${{ !matrix.use-clipper }}
+        shell: bash
+        run: |
+          NERDCTL_VERSION=2.1.2
+          curl -fsSL "https://github.com/containerd/nerdctl/releases/download/v${NERDCTL_VERSION}/nerdctl-${NERDCTL_VERSION}-linux-amd64.tar.gz" | sudo tar xz -C /usr/local/bin
+
+      - name: Log in to registry
+        if: matrix.registry-password-secret
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ matrix.registry-host || '' }}
+          username: ${{ matrix.registry-username || '' }}
+          password: >-
+            ${{
+              matrix.registry-password-secret == 'CLIPPER_CI_CREDENTIALS' && secrets.CLIPPER_CI_CREDENTIALS ||
+              ''
+            }}
+
+      - name: Pull 0.17.5
+        shell: bash
+        env:
+          CLIPPER_CREDENTIALS: ${{ secrets.CLIPPER_CI_CREDENTIALS }}
+        run: |
+          IMAGE="${{ matrix.repo }}:0.17.5"
+          echo "### Pull: ${IMAGE}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          START=$(date +%s%N)
+          if [ "${{ matrix.use-clipper }}" = "true" ]; then
+            sudo -E clipper pull --platform linux/arm64 "$IMAGE" 2>&1
+          else
+            sudo nerdctl pull --platform linux/arm64 "$IMAGE" 2>&1
+          fi
+          END=$(date +%s%N)
+
+          ELAPSED_MS=$(( (END - START) / 1000000 ))
+          ELAPSED_S=$(( ELAPSED_MS / 1000 ))
+          ELAPSED_FRAC=$(( ELAPSED_MS % 1000 ))
+          printf "| Phase | Duration |\n" >> "$GITHUB_STEP_SUMMARY"
+          printf "|-------|----------|\n" >> "$GITHUB_STEP_SUMMARY"
+          printf "| Pull  | %d.%03ds  |\n" "$ELAPSED_S" "$ELAPSED_FRAC" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Pull completed in ${ELAPSED_S}.${ELAPSED_FRAC}s"
+
+      - name: Pull 0.17.6
+        shell: bash
+        env:
+          CLIPPER_CREDENTIALS: ${{ secrets.CLIPPER_CI_CREDENTIALS }}
+        run: |
+          IMAGE="${{ matrix.repo }}:0.17.6"
+          echo "### Pull: ${IMAGE}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          START=$(date +%s%N)
+          if [ "${{ matrix.use-clipper }}" = "true" ]; then
+            sudo -E clipper pull --platform linux/arm64 "$IMAGE" 2>&1
+          else
+            sudo nerdctl pull --platform linux/arm64 "$IMAGE" 2>&1
+          fi
+          END=$(date +%s%N)
+
+          ELAPSED_MS=$(( (END - START) / 1000000 ))
+          ELAPSED_S=$(( ELAPSED_MS / 1000 ))
+          ELAPSED_FRAC=$(( ELAPSED_MS % 1000 ))
+          printf "| Phase | Duration |\n" >> "$GITHUB_STEP_SUMMARY"
+          printf "|-------|----------|\n" >> "$GITHUB_STEP_SUMMARY"
+          printf "| Pull  | %d.%03ds  |\n" "$ELAPSED_S" "$ELAPSED_FRAC" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Pull completed in ${ELAPSED_S}.${ELAPSED_FRAC}s"
