@@ -33,6 +33,13 @@ jobs:
         if: matrix.use-clipper
         uses: clipper-registry/setup-clipper@v1
 
+      - name: Install nerdctl
+        if: ${{ !matrix.use-clipper }}
+        shell: bash
+        run: |
+          NERDCTL_VERSION=2.1.2
+          curl -fsSL "https://github.com/containerd/nerdctl/releases/download/v${NERDCTL_VERSION}/nerdctl-${NERDCTL_VERSION}-linux-amd64.tar.gz" | sudo tar xz -C /usr/local/bin
+
       - name: Log in to registry
         if: matrix.registry-password-secret
         uses: docker/login-action@v4
