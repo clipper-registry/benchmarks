@@ -96,3 +96,4 @@ jobs:
                 || format('type=registry,ref={0}:latest,mode=max', matrix.cache-repo)
             }}
           extra-packages: ${{ matrix.scenario == 'partial-cache' && 'curl wget' || '' }}
+          debug: ${{ matrix.scenario == 'partial-cache' && 'true' || '' }}
