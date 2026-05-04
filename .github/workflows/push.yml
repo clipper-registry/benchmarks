@@ -94,7 +94,7 @@ jobs:
             output-type: clipper
             output-repo: clipper.dev/clipper/ci-bench
             cache-from: type=registry,ref=clipper.dev/clipper/ci-bench-cache:latest
-            cache-to: type=registry,ref=clipper.dev/clipper/ci-bench-cache:latest,mode=max
+            cache-to: type=registry,ref=clipper.dev/clipper/ci-bench-cache-extra:latest,mode=max
             extra-packages: curl wget
           - registry: ghcr-partial-cache
             registry-host: ghcr.io
@@ -102,7 +102,7 @@ jobs:
             output-type: image
             output-repo: ghcr.io/${{ github.repository }}/ci-bench
             cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/ci-bench-cache:latest
-            cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/ci-bench-cache:latest,mode=max
+            cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/ci-bench-cache-extra:latest,mode=max
             extra-packages: curl wget
           - registry: dockerhub-partial-cache
             registry-username-secret: DOCKERHUB_USERNAME
@@ -110,7 +110,7 @@ jobs:
             output-type: image
             output-repo: clipperregistry/ci-bench
             cache-from: type=registry,ref=clipperregistry/ci-bench-cache:latest
-            cache-to: type=registry,ref=clipperregistry/ci-bench-cache:latest,mode=max
+            cache-to: type=registry,ref=clipperregistry/ci-bench-cache-extra:latest,mode=max
             extra-packages: curl wget
     steps:
       - uses: actions/checkout@v6
