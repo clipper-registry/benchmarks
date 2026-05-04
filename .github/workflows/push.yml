@@ -83,4 +83,4 @@ jobs:
             }}
           base: ${{ matrix.base || 'nvidia/cuda:12.9.0-runtime-ubuntu24.04' }}
           context: ${{ matrix.workload }}
-          output: "type=${{ matrix.output-type }},name=${{ matrix.output-repo }}:${{ github.run_id }},push=true"
+          output: "type=${{ matrix.output-type }},name=${{ matrix.output-repo }}:${{ github.run_id }},push=false"
