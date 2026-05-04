@@ -38,7 +38,7 @@ jobs:
         registry: [clipper, ghcr, dockerhub]
         include:
           # Registry config
-          - registry: clipper (full cache)
+          - registry: clipper-full-cache
             buildkit-image: ${{ inputs.buildkit_image || 'ghcr.io/clipper-registry/buildkit:5dd886012d0c436b382dae13250945a3d68a64df' }}
             registry-host: clipper.dev
             registry-username: token
@@ -48,14 +48,14 @@ jobs:
             output-repo: clipper.dev/clipper/ci-bench
             cache-from: type=registry,ref=clipper.dev/clipper/ci-bench-cache:latest
             cache-to: type=registry,ref=clipper.dev/clipper/ci-bench-cache:latest,mode=max
-          - registry: ghcr (full cache)
+          - registry: ghcr-full-cache
             registry-host: ghcr.io
             registry-password-secret: GITHUB_TOKEN
             output-type: image
             output-repo: ghcr.io/${{ github.repository }}/ci-bench
             cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/ci-bench-cache:latest
             cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/ci-bench-cache:latest,mode=max
-          - registry: dockerhub (full cache)
+          - registry: dockerhub-full-cache
             registry-username-secret: DOCKERHUB_USERNAME
             registry-password-secret: DOCKERHUB_TOKEN
             output-type: image
@@ -85,7 +85,7 @@ jobs:
             output-repo: clipperregistry/ci-bench
             cache-to: type=registry,ref=clipperregistry/ci-bench-cache:latest,mode=max
 
-          - registry: clipper (partial cache)
+          - registry: clipper-partial-cache
             buildkit-image: ${{ inputs.buildkit_image || 'ghcr.io/clipper-registry/buildkit:5dd886012d0c436b382dae13250945a3d68a64df' }}
             registry-host: clipper.dev
             registry-username: token
@@ -95,20 +95,23 @@ jobs:
             output-repo: clipper.dev/clipper/ci-bench
             cache-from: type=registry,ref=clipper.dev/clipper/ci-bench-cache:latest
             cache-to: type=registry,ref=clipper.dev/clipper/ci-bench-cache:latest,mode=max
-          - registry: ghcr (partial cache)
+            extra-packages: curl wget
+          - registry: ghcr-partial-cache
             registry-host: ghcr.io
             registry-password-secret: GITHUB_TOKEN
             output-type: image
             output-repo: ghcr.io/${{ github.repository }}/ci-bench
             cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/ci-bench-cache:latest
             cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/ci-bench-cache:latest,mode=max
-          - registry: dockerhub (partial cache)
+            extra-packages: curl wget
+          - registry: dockerhub-partial-cache
             registry-username-secret: DOCKERHUB_USERNAME
             registry-password-secret: DOCKERHUB_TOKEN
             output-type: image
             output-repo: clipperregistry/ci-bench
             cache-from: type=registry,ref=clipperregistry/ci-bench-cache:latest
             cache-to: type=registry,ref=clipperregistry/ci-bench-cache:latest,mode=max
+            extra-packages: curl wget
     steps:
       - uses: actions/checkout@v6
         with:
@@ -139,3 +142,4 @@ jobs:
           output: "type=${{ matrix.output-type }},name=${{ matrix.output-repo }}:${{ github.run_id }},push=true"
           cache-from: ${{ matrix.cache-from || '' }}
           cache-to: ${{ matrix.cache-to || '' }}
+          extra-packages: ${{ matrix.extra-packages || '' }}

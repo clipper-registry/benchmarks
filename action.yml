@@ -28,6 +28,10 @@ inputs:
     description: "docker buildx build --cache-to value"
     required: false
     default: ""
+  extra-packages:
+    description: "Additional apt packages to install (space-separated)"
+    required: false
+    default: ""
   registry:
     description: "Registry to log in to (e.g. clipper.dev, ghcr.io)"
     required: false
@@ -97,6 +101,7 @@ runs:
           --progress=rawjson \
           --builder=${{ steps.buildx.outputs.name }} \
           --build-arg BASE=${{ inputs.base }} \
+          --build-arg EXTRA_PACKAGES="${{ inputs.extra-packages }}" \
           --build-arg SOURCE_DATE_EPOCH=0 \
           --output "${{ inputs.output }}" \
           ${{ inputs.cache-from && format('--cache-from "{0}"', inputs.cache-from) || '' }} \
